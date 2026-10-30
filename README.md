@@ -1,6 +1,6 @@
 # District 214 Personal Finance Lab
 
-The District 214 stock market simulation: 12 teachers, 6 schools, about 300 students, live prices from Massive.
+The District 214 Personal Finance Lab, a stock market simulation for the Personal Finance classes: 12 teachers, 6 schools, about 300 students, live prices from Massive.
 
 **To launch, follow [SETUP.md](SETUP.md).**
 
