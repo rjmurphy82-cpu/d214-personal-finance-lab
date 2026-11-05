@@ -22,12 +22,18 @@ export default async function handler(req, res) {
     const sql = await sqlReady();
     const user = route.public ? null : await currentUser(sql, req);
     const body = route.post ? await readJson(req) : null;
+    // Fill any orders whose market price has come in, so people see their fills right away.
+    if (user && FILL_ON.has(fn)) {
+      try { if (await P.fillDue(sql)) invalidateStandings(); } catch (e) { console.error('[orders]', e.message); }
+    }
     const out = await route.run({ req, res, sql, user, body, q: query(req) });
     if (!res.writableEnded) sendJson(res, 200, out);
   } catch (e) {
     sendError(res, e);
   }
 }
+
+const FILL_ON = new Set(['me', 'act', 'standings', 'student', 'teacher', 'admin']);
 
 const ROUTES = {
   /* ---------- signing in ---------- */
@@ -106,6 +112,7 @@ const ROUTES = {
       case 'drip': await P.toggleDrip(sql, sid, body.sym); break;
       case 'watch': await P.setWatch(sql, sid, body.sym, !!body.on); break;
       case 'dismiss': await P.dismissNotes(sql, sid); break;
+      case 'order_cancel': await P.cancelOrder(sql, sid, int(body.id)); break;
       default: throw bad('Unknown action.');
     }
     if (['trade', 'mm', 'dca_start'].includes(body.a)) invalidateStandings();
@@ -314,6 +321,14 @@ const ROUTES = {
         for (const k of ['minPrice', 'minShortPrice']) if (body[k] !== undefined) {
           const v = Number(body[k]); if (!isFinite(v) || v < 0 || v > 100) throw bad('Pick a price from $0 to $100.');
           await P.setSetting(sql, k, v);
+        }
+        if (body.minCapM !== undefined) {
+          const v = Number(body.minCapM); if (!isFinite(v) || v < 0 || v > 100000) throw bad('Pick a company size from $0 to $100,000 million.');
+          await P.setSetting(sql, 'minCapM', v);
+        }
+        if (body.minDollarVolM !== undefined) {
+          const v = Number(body.minDollarVolM); if (!isFinite(v) || v < 0 || v > 1000) throw bad('Pick a daily trading amount from $0 to $1,000 million.');
+          await P.setSetting(sql, 'minDollarVolM', v);
         }
         invalidateStandings();
         return P.getSettings(sql);
